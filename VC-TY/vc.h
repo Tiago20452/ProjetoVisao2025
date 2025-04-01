@@ -56,7 +56,7 @@ int vc_rgb_to_gray(IVC* src, IVC* dst);
 int vc_gray_to_rgb(IVC* src, IVC* dst);
 
 // CONVERTER UMA IMAGEM RGB -> HSV  
-int vc_rgb_to_hsv(IVC* src);
+int vc_rgb_to_hsv(IVC* srcdst);
 // CONVERTER UMA IMAGEM HSV -> RGB  
 int vc_hsv_to_rgb(IVC* src, IVC* dst);
 
@@ -109,7 +109,7 @@ int vc_binary_blob_info(IVC* src, OVC* blobs, int nblobs);
 
 OVC* vc_blob_gray_coloring(IVC* src, IVC* dst, OVC* blobs, int nblobs);
 
-//OVC* vc_blob_rgb_coloring2(IVC *src, IVC *dst, OVC *blobs, int nblobs); // NOT DONE
+OVC* vc_blob_rgb_coloring2(IVC *src, IVC *dst, OVC *blobs, int nblobs); // 
 
 int vc_draw_boundingbox(IVC* srcdst, OVC* blob);
 

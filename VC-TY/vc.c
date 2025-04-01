@@ -528,13 +528,7 @@ int vc_gray_to_rgb(IVC* src, IVC* dst)
 	int x, y;
 	long int pos_src, pos_dst;
 	float r[256], g[256], b[256];
-	// converter grey para rgb com valores segundo a formula
-	//  vermelho = 0 at� 128 e de 128 at� 192 aumentar gradualmente , de 192 para a frente = 255
-	//  verde 0 a 64 aumentar gradualmente , de 64 a 192 = 255 , de 192 diminiur gradualmente at� 0
-	//  azul 0 a 64 = 255 , de 64 a 192 diminuir gradualmente at� 0 , de 128 para a frente = 0
-	//  preciso de uma variavel que vai aumentando no for para fazer a verifica��o dos valores
 
-	// preencher os arrays com os valores de r g e b , com uma variavel para aumentar o valor gradualmente
 	for (int i = 0; i < 256; i++)
 	{
 		if (i <= 64)
@@ -562,6 +556,19 @@ int vc_gray_to_rgb(IVC* src, IVC* dst)
 			b[i] = 0;
 		}
 	}
+
+	for (y = 0; y < height; y++) {
+		for (x = 0; x < width; x++) {
+			pos_src = y * bytesperline_src + x * channels_src;
+			pos_dst = y * bytesperline_dst + x * channels_dst;
+
+			int gray_value = datasrc[pos_src];
+			datadst[pos_dst] = r[gray_value];     // R
+			datadst[pos_dst + 1] = g[gray_value]; // G
+			datadst[pos_dst + 2] = b[gray_value]; // B
+		}
+	}
+	return 1; // Adicione o retorno
 }
 
 int vc_rgb_to_hsv(IVC* srcdst)
@@ -1149,6 +1156,12 @@ int vc_binary_erode(IVC* src, IVC* dst, int size)
 
 int vc_binary_open(IVC* src, IVC* dst, int kernel1, int kernel2)
 {
+	// Exemplo em vc_binary_open:
+	IVC* aux = vc_image_new(src->width, src->height, src->channels, src->levels);
+	if (aux == NULL) {
+		printf("Erro ao alocar imagem auxiliar!\n");
+		return 0;
+	}
 	// Verificações de entrada
 	if (src == NULL || dst == NULL || src->data == NULL || dst->data == NULL ||
 		src->width <= 0 || src->height <= 0 || dst->width != src->width || dst->height != src->height ||
@@ -1187,6 +1200,12 @@ int vc_binary_open(IVC* src, IVC* dst, int kernel1, int kernel2)
 
 int vc_binary_close(IVC* src, IVC* dst, int kernel1, int kernel2)
 {
+	// Exemplo em vc_binary_open:
+	IVC* aux = vc_image_new(src->width, src->height, src->channels, src->levels);
+	if (aux == NULL) {
+		printf("Erro ao alocar imagem auxiliar!\n");
+		return 0;
+	}
 	// Verificações de entrada
 	if (src == NULL || dst == NULL || src->data == NULL || dst->data == NULL ||
 		src->width <= 0 || src->height <= 0 || dst->width != src->width || dst->height != src->height ||
@@ -1614,30 +1633,22 @@ OVC* vc_blob_gray_coloring(IVC* src, IVC* dst, OVC* blobs, int nblobs) {
      // Copia dados da imagem binaria para imagem grayscale
      memcpy(datadst, datasrc, bytesperline * height);
 
- 	// Pinta os blobs
-     for (i = 0; i < nblobs; i++) {
-         for (y = 0; y < height; y++) {
-             for (x = 0; x < width; x++) {
-                 pos = y * bytesperline + x * channels;
-
- 				if (blobs[i].label == datadst[pos]) {
- 					datadst[pos] = 255;
- 					datadst[pos + 1] = 0;
- 					datadst[pos + 2] = 0;
- 				} else if (blobs[i].label == datadst[pos]) {
- 					datadst[pos] = 0;
- 					datadst[pos + 1] = 255;
- 					datadst[pos + 2] = 0;
- 				} else if (blobs[i].label == 3 && blobs[i].label == datadst[pos]) {
- 					datadst[pos] = 0;
- 					datadst[pos + 1] = 0;
- 					datadst[pos + 2] = 255;
- 				}
-             }
-         }
-     }
-
-     return blobs;
+	 for (i = 0; i < nblobs; i++) {
+		 unsigned char r = rand() % 255;
+		 unsigned char g = rand() % 255;
+		 unsigned char b = rand() % 255;
+		 for (y = 0; y < height; y++) {
+			 for (x = 0; x < width; x++) {
+				 pos = y * bytesperline + x * channels;
+				 if (datadst[pos] == blobs[i].label) {
+					 datadst[pos] = r;
+					 datadst[pos + 1] = g;
+					 datadst[pos + 2] = b;
+				 }
+			 }
+		 }
+	 }
+	 return blobs;
  }
 
 int vc_draw_boundingbox(IVC* srcdst, OVC* blob) {
@@ -2069,7 +2080,59 @@ int vc_gray_lowpass_median_filter(IVC* src, IVC* dst, int kernelsize) {
 }
 
 int vc_gray_lowpass_gaussian_filter(IVC* src, IVC* dst) {
+	// Verificação de erros
+	if (src == NULL || dst == NULL || src->data == NULL || dst->data == NULL) {
+		printf("ERROR: vc_gray_lowpass_gaussian_filter() - Invalid images.\n");
+		return 0;
+	}
+	if (src->width != dst->width || src->height != dst->height || src->channels != 1 || dst->channels != 1) {
+		printf("ERROR: vc_gray_lowpass_gaussian_filter() - Image dimensions/channels mismatch.\n");
+		return 0;
+	}
 
+	int width = src->width;
+	int height = src->height;
+	int bytesperline = src->bytesperline;
+	unsigned char* datasrc = (unsigned char*)src->data;
+	unsigned char* datadst = (unsigned char*)dst->data;
+
+	// Kernel Gaussiano 3x3 (normalizado)
+	float gaussian_kernel[3][3] = {
+		{1.0f / 16, 2.0f / 16, 1.0f / 16},
+		{2.0f / 16, 4.0f / 16, 2.0f / 16},
+		{1.0f / 16, 2.0f / 16, 1.0f / 16}
+	};
+
+	// Aplicar convolução
+	for (int y = 1; y < height - 1; y++) {
+		for (int x = 1; x < width - 1; x++) {
+			float sum = 0.0f;
+
+			// Percorrer o kernel
+			for (int ky = -1; ky <= 1; ky++) {
+				for (int kx = -1; kx <= 1; kx++) {
+					int pos = (y + ky) * bytesperline + (x + kx);
+					sum += datasrc[pos] * gaussian_kernel[ky + 1][kx + 1];
+				}
+			}
+
+			// Garantir valores entre [0,255]
+			sum = (sum < 0) ? 0 : (sum > 255) ? 255 : sum;
+			datadst[y * bytesperline + x] = (unsigned char)sum;
+		}
+	}
+
+	// Preencher bordas (opcional)
+	for (int y = 0; y < height; y++) {
+		datadst[y * bytesperline] = datasrc[y * bytesperline];                   // Borda esquerda
+		datadst[y * bytesperline + (width - 1)] = datasrc[y * bytesperline + (width - 1)]; // Borda direita
+	}
+	for (int x = 0; x < width; x++) {
+		datadst[x] = datasrc[x];                                                 // Borda superior
+		datadst[(height - 1) * bytesperline + x] = datasrc[(height - 1) * bytesperline + x]; // Borda inferior
+	}
+
+	return 1;
 }
 
 int vc_gray_binary_or(IVC* src1, IVC* src2) {
